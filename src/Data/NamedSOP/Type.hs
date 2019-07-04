@@ -9,6 +9,7 @@ module Data.NamedSOP.Type
   ( Mapping(..)
   , Union
   , SMapping
+  , SingI
   ) where
 
 import           Data.Kind
