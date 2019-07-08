@@ -1,24 +1,56 @@
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DataKinds     #-}
 {-# LANGUAGE GADTs         #-}
 {-# LANGUAGE PolyKinds     #-}
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeInType    #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE QuasiQuotes   #-}
+{-# LANGUAGE TemplateHaskell   #-}
 
 module Data.NamedSOP.Type
   ( Mapping(..)
-  , Union
   , SMapping
   , SingI
+  , Union
+  , sUnion
+  , union
+  , type (++)
+  , (%++)
+  , Insert
+  , sInsert
+  , insert
+  , Sort
+  , sSort
+  , sort
+  , Sing(..)
   ) where
 
 import           Data.Kind
 import           Data.Singletons
-import           Data.Singletons.Prelude.Eq
-import           Data.Singletons.Prelude.List hiding (Union)
-import           Data.Singletons.Prelude.Ord
+import           Data.Singletons.TH
+import           Data.Singletons.Prelude.List (Sing(SCons, SNil))
 
-type Union xs ys = Sort (xs ++ ys)
+singletons [d|
+   (++) :: [a] -> [a] -> [a]
+   [] ++ ys = ys
+   (x:xs) ++ ys = x : (xs ++ ys)
+
+   insert :: Ord a => a -> [a] -> [a]
+   insert x [] = [x]
+   insert x (y:ys) = case compare x y of
+     LT -> x : y : ys
+     EQ -> x : y : ys
+     GT -> y : insert x ys
+
+   sort :: Ord a => [a] -> [a]
+   sort [] = []
+   sort (x:xs) = insert x (sort xs)
+
+   union :: Ord a => [a] -> [a] -> [a]
+   union xs ys = sort (xs ++ ys)
+ |]
 
 infixr 4 :->
 
