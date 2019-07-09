@@ -65,10 +65,9 @@ sortMap (SCons sx sxs) (NMapExt x xs) =
 
 unionMap ::
      forall xs ys. (SingI xs, SingI ys)
-  => NMap xs
-  -> NMap ys
+  => (NMap xs, NMap ys)
   -> NMap (Union xs ys)
-unionMap xs ys = sortMap (sing @xs %++ sing @ys) (appendMap xs ys)
+unionMap (xs, ys) = sortMap (sing @xs %++ sing @ys) (appendMap xs ys)
 
 splitMap :: forall xs ys. Sing xs -> Sing ys -> NMap (xs ++ ys) -> (NMap xs, NMap ys)
 splitMap SNil SNil NMapEmpty = (NMapEmpty, NMapEmpty)
