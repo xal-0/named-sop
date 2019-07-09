@@ -92,7 +92,8 @@ unsortMap (SCons sx@(SMapping _) sxs) vs =
   let (v', vs') = uninsertMap sx (sSort sxs) vs
   in NMapExt v' (unsortMap sxs vs')
 
-ununionMap :: forall xs ys. (SingI xs, SingI ys) => NMap (Union xs ys) -> (NMap xs, NMap ys)
+ununionMap :: forall xs ys. (SingI xs, SingI ys) =>
+  NMap (Union xs ys) -> (NMap xs, NMap ys)
 ununionMap vs = splitMap sxs sys (unsortMap (sxs %++ sys) vs)
   where
     sxs = sing @xs
