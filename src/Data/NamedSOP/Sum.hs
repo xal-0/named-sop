@@ -83,7 +83,7 @@ uninsertSum :: forall k v xs. Sing (k ':-> v) -> Sing xs
   -> NSum (Insert (k ':-> v) xs) -> Either v (NSum xs)
 uninsertSum _ SNil (NSumThis v) = Left v
 uninsertSum _ SNil (NSumThat v) = Right v
-uninsertSum sxk (SCons syk sys) (NSumThis v) = case sCompare sxk syk of
+uninsertSum sxk (SCons syk _) (NSumThis v) = case sCompare sxk syk of
   SLT -> Left v
   SEQ -> Left v
   SGT -> error "unsorted list"
