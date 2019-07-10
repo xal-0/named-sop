@@ -12,6 +12,7 @@ library
   exposed-modules:     Data.NamedSOP.Type
                      , Data.NamedSOP.Map
                      , Data.NamedSOP.Sum
+                     , Data.NamedSOP.Generic
   build-depends:       base ^>= 4.12.0.0
                      , singletons ^>= 2.5.1
                      , text ^>= 1.2.3.1
