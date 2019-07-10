@@ -1,11 +1,11 @@
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE AllowAmbiguousTypes            #-}
-{-# LANGUAGE ScopedTypeVariables            #-}
+{-# LANGUAGE AllowAmbiguousTypes  #-}
 {-# LANGUAGE DataKinds            #-}
 {-# LANGUAGE DeriveGeneric        #-}
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE InstanceSigs         #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeApplications     #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE TypeSynonymInstances #-}
@@ -13,26 +13,23 @@
 
 module Data.NamedSOP.Generic
   ( GenProduct(GProduct)
-  -- , specProduct
-  -- , genProduct
+  , specProduct
+  , genProduct
+  , GenSum(GSum)
+  , specSum
+  , genSum
   ) where
 
 import           Data.Kind
+import           Data.Singletons
 import           Data.Singletons.Prelude.Monoid
 import           Data.Singletons.Prelude.Num
 import           Data.Singletons.Prelude.Show
 import           Data.Singletons.TypeLits
-import Data.Singletons
 import           GHC.Generics
 
 import           Data.NamedSOP.Map
-
-data TA = -- CA { fa :: Int } |
-  CB Bool String
-  deriving (Eq, Ord, Show, Generic)
-
-data TB = CC { fd :: Int }
-  deriving (Eq, Ord, Show, Generic)
+import           Data.NamedSOP.Sum
 
 class GenProduct (f :: * -> *) where
   type GProduct f :: [Mapping Symbol Type]
@@ -64,6 +61,7 @@ instance (SingI (GProduct f), SingI (GProduct g),
 instance GenProductN f => GenProduct (C1 ('MetaCons _a _b 'False) f) where
   type GProduct (C1 ( 'MetaCons _a _b 'False) f) = GProductN 1 f
   genProduct' (M1 x) = genProductN' (SNat @1) x
+  specProduct' x = M1 (specProductN' (SNat @1) x)
 
 class GenProductN (f :: * -> *) where
   type GProductN (n :: Nat) f :: [Mapping Symbol Type]
@@ -71,7 +69,7 @@ class GenProductN (f :: * -> *) where
   sGProductS :: SNat (GProductS f)
   sGProductN :: Sing n -> Sing (GProductN n f)
   genProductN' :: Sing n -> f a -> NMap (GProductN n f)
-  -- specProductN' :: NMap (GProductN n f) -> f a
+  specProductN' :: Sing n -> NMap (GProductN n f) -> f a
 
 instance GenProductN (S1 ('MetaSel 'Nothing _a _b _c) (Rec0 t)) where
   type GProductN n (S1 ( 'MetaSel 'Nothing _a _b _c) (Rec0 t)) = '[Mappend "_" (Show_ n) ':-> t]
@@ -79,28 +77,66 @@ instance GenProductN (S1 ('MetaSel 'Nothing _a _b _c) (Rec0 t)) where
   sGProductS = SNat
   sGProductN sn = SCons (SMapping (sMappend (SSym @"_") (sShow_ sn))) SNil
   genProductN' _ (M1 (K1 c)) = NMapExt c NMapEmpty
-  -- specProductN' (NMapExt c NMapEmpty) = M1 (K1 c)
+  specProductN' _ (NMapExt c NMapEmpty) = M1 (K1 c)
 
 instance (GenProductN f, GenProductN g) => GenProductN (f :*: g) where
   type GProductN n (f :*: g)
     = Union (GProductN n f) (GProductN (n + GProductS f) g)
   type GProductS (f :*: g) = GProductS f + GProductS g
   sGProductS = (sGProductS @f) %+ (sGProductS @g)
-  sGProductN sn = sUnion (sGProductN @f sn) (sGProductN @g (sn %+ sGProductS @f))
+  sGProductN sn =
+    sUnion (sGProductN @f sn) (sGProductN @g (sn %+ sGProductS @f))
   genProductN' sn (x :*: y) =
-    let (m1, m2) = (genProductN' sn x, genProductN' (sn %+ sGProductS @f) y)
+    let (m1 , m2 ) = (genProductN' sn x, genProductN' (sn %+ sGProductS @f) y)
         (sm1, sm2) = (sGProductN @f sn, sGProductN @g (sn %+ sGProductS @f))
-    in withSingI sm1 $ withSingI sm2 $ unionMap (m1, m2)
+    in  withSingI sm1 $ withSingI sm2 $ unionMap (m1, m2)
+  specProductN' (sn :: Sing n) m =
+    let (sm1, sm2) = (sGProductN @f sn, sGProductN @g (sn %+ sGProductS @f))
+        (x, y) =
+            withSingI sm1
+              $ withSingI sm2
+              $ ununionMap @(GProductN n f) @(GProductN (n + GProductS f) g) m
+    in  specProductN' sn x :*: specProductN' (sn %+ sGProductS @f) y
 
--- genProduct :: (Generic a, GenProduct (Rep a)) => a -> NMap (GProduct (Rep a))
--- genProduct = genProduct' . from
+class GenSum (f :: * -> *) where
+  type GSum f :: [Mapping Symbol Type]
+  genSum' :: f a -> NSum (GSum f)
+  specSum' :: NSum (GSum f) -> f a
 
--- specProduct :: (Generic a, GenProduct (Rep a)) => NMap (GProduct (Rep a)) -> a
--- specProduct = to . specProduct'
+instance GenSum f => GenSum (D1 _a f) where
+  type GSum (D1 _a f) = GSum f
+  genSum'  = genSum' . unM1
+  specSum' = M1 . specSum'
 
--- class GenSum (f :: * -> *) where
---   type GSum f
+instance GenProduct f => GenSum (C1 ('MetaCons n _a 'True) f) where
+  type GSum (C1 ( 'MetaCons n _a 'True) f) = '[Mappend "_" n ':-> NMap (GProduct f)]
+  genSum' (M1 x) = NSumThis (genProduct' x)
+  specSum' (NSumThis x) = M1 (specProduct' x)
+  specSum' (NSumThat _) = error "unreachable"
 
--- instance GeneralizeSum f => GeneralizeSum (D1 m f) where
+instance GenProductN f => GenSum (C1 ('MetaCons n _a 'False) f) where
+  type GSum (C1 ( 'MetaCons n _a 'False) f) = '[Mappend "_" n ':-> NMap (GProductN 1 f)]
+  genSum' (M1 x) = NSumThis (genProductN' (SNat @1) x)
+  specSum' (NSumThis x) = M1 (specProductN' (SNat @1) x)
+  specSum' (NSumThat _) = error "unreachable"
 
--- instance GeneralizeSum (C1 ('MetaSel ('Just n) _a _b _c) f) where
+instance ( SingI (GSum f), SingI (GSum g)
+         , GenSum f, GenSum g) => GenSum (f :+: g) where
+  type GSum (f :+: g) = Union (GSum f) (GSum g)
+  genSum' (L1 x) = unionSum @(GSum f) @(GSum g) (Left (genSum' x))
+  genSum' (R1 x) = unionSum @(GSum f) @(GSum g) (Right (genSum' x))
+  specSum' m = case ununionSum @(GSum f) @(GSum g) m of
+    Left  x -> L1 (specSum' x)
+    Right y -> R1 (specSum' y)
+
+genProduct :: (Generic a, GenProduct (Rep a)) => a -> NMap (GProduct (Rep a))
+genProduct = genProduct' . from
+
+specProduct :: (Generic a, GenProduct (Rep a)) => NMap (GProduct (Rep a)) -> a
+specProduct = to . specProduct'
+
+genSum :: (Generic a, GenSum (Rep a)) => a -> NSum (GSum (Rep a))
+genSum = genSum' . from
+
+specSum :: (Generic a, GenSum (Rep a)) => NSum (GSum (Rep a)) -> a
+specSum = to . specSum'
