@@ -7,6 +7,10 @@
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeOperators       #-}
 
+{-|
+module      : Data.NamedSOP.Map
+description : Dependently-typed products/maps
+-}
 module Data.NamedSOP.Map
   ( NMap(..)
   , unionMap
@@ -22,9 +26,16 @@ import           Data.Singletons.Prelude.Ord
 
 import           Data.NamedSOP.Type
 
+-- | A depedently-typed product, or map.  The following are roughly
+-- equivalent:
+--
+-- > type A = NMap '[ "a" ':-> Int, "b" ':-> Bool ]
+-- > data A = A { a :: Int, b :: Bool }
 data NMap :: [Mapping Symbol Type] -> Type where
   NMapEmpty :: NMap '[]
   NMapExt :: forall k v xs. v -> NMap xs -> NMap ((k ':-> v) : xs)
+
+-- Helper typeclasses for showing a map
 
 class ShowMap xs where
   showMap :: NMap xs -> String
@@ -63,6 +74,16 @@ sortMap _ NMapEmpty = NMapEmpty
 sortMap (SCons sx sxs) (NMapExt x xs) =
   insertMap sx (sSort sxs) x (sortMap sxs xs)
 
+-- | Combine two 'NMap's in a way such that the original ordering of
+-- their fields doesn't matter; no matter how you combine smaller maps
+-- to create a large one, you are guaranteed to have a sorted 'NMap'
+-- when you finish.
+--
+-- 'NMap's form a commutative monoid under 'unionMap', with
+-- 'NMapEmpty' as the identity.
+--
+-- This function takes a tuple as an argument so that it is symmetric
+-- with `ununionMap`.
 unionMap ::
      forall xs ys. (SingI xs, SingI ys)
   => (NMap xs, NMap ys)
@@ -91,6 +112,14 @@ unsortMap (SCons sx@(SMapping _) sxs) vs =
   let (v', vs') = uninsertMap sx (sSort sxs) vs
   in NMapExt v' (unsortMap sxs vs')
 
+-- | Split a sorted 'NMap' into two arbitrary (and potentially
+-- unsorted) submaps.  Conveniently select the submaps to split into
+-- using @-XTypeApplications@.
+--
+-- >>> m :: NMap '[ "a" ':-> Int, "b" ':-> Bool, "c" ':-> String ]
+-- >>> m = NMapExt 1 (NMapExt True (NMapExt "hello" NMapEmpty))
+-- >>> ununionMap @'[ "b" ':-> Bool, "a" ':-> Int ] @'[ "c" ':-> String ] m
+-- ({ b :-> True, a :-> 1 },{ c :-> "hello" })
 ununionMap :: forall xs ys. (SingI xs, SingI ys) =>
   NMap (Union xs ys) -> (NMap xs, NMap ys)
 ununionMap vs = splitMap sxs sys (unsortMap (sxs %++ sys) vs)

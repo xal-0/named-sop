@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes  #-}
 {-# LANGUAGE DataKinds            #-}
-{-# LANGUAGE DeriveGeneric        #-}
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE InstanceSigs         #-}
@@ -8,16 +7,19 @@
 {-# LANGUAGE TypeApplications     #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeOperators        #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+{-|
+module      : Data.NamedSOP.Generic
+description : Convert to/from Generic instances and named sums of products
+-}
 module Data.NamedSOP.Generic
-  ( GenProduct(GProduct)
+  ( genProduct
   , specProduct
-  , genProduct
-  , GenSum(GSum)
-  , specSum
   , genSum
+  , specSum
+  , GenProduct(GProduct)
+  , GenSum(GSum)
   ) where
 
 import           Data.Kind
@@ -83,7 +85,7 @@ instance (GenProductN f, GenProductN g) => GenProductN (f :*: g) where
   type GProductN n (f :*: g)
     = Union (GProductN n f) (GProductN (n + GProductS f) g)
   type GProductS (f :*: g) = GProductS f + GProductS g
-  sGProductS = (sGProductS @f) %+ (sGProductS @g)
+  sGProductS = sGProductS @f %+ sGProductS @g
   sGProductN sn =
     sUnion (sGProductN @f sn) (sGProductN @g (sn %+ sGProductS @f))
   genProductN' sn (x :*: y) =
@@ -129,14 +131,37 @@ instance ( SingI (GSum f), SingI (GSum g)
     Left  x -> L1 (specSum' x)
     Right y -> R1 (specSum' y)
 
+-- | Convert a single-constructor type with a 'Generic' instance into
+-- a sorted 'NMap'.  Constructors with record selectors will use their
+-- names, and constructors without will use numbers, prefixed with @_@
+-- for better compatibility with @-XOverloadedLabels@.
+--
+-- >>> data A = C { a :: Int, b :: Bool } deriving (Generic)
+-- >>> genProduct (C { a = 1, b = True })
+-- { a :-> 1, b :-> True }
+--
+-- >>> data B = D Int Bool deriving (Generic)
+-- >>> genProduct (D 1 True)
+-- { _1 :-> 1, _2 :-> True }
 genProduct :: (Generic a, GenProduct (Rep a)) => a -> NMap (GProduct (Rep a))
 genProduct = genProduct' . from
 
+-- | Reverse the operation performed by 'genProduct'.
 specProduct :: (Generic a, GenProduct (Rep a)) => NMap (GProduct (Rep a)) -> a
 specProduct = to . specProduct'
 
+-- | Convert a type with a generic instance with any number of
+-- constructors into an 'NSum' of 'NMap's.  All constructor names will
+-- be prefixed with @_@ to allow for the use of @-XOverloadedLabels@.
+--
+-- >>> data A = C { a :: Int, b :: Bool } | D Int Bool deriving (Generic)
+-- >>> :t genSum (C 3 True)
+-- NSum
+--  '[ "_C" ':-> NMap '[ "a" ':-> Int, "b" ':-> Bool],
+--     "_D" ':-> NMap '[ "_1" ':-> Int, "_2" ':-> Bool]]
 genSum :: (Generic a, GenSum (Rep a)) => a -> NSum (GSum (Rep a))
 genSum = genSum' . from
 
+-- | Reverse the operation performed by 'genSum'.
 specSum :: (Generic a, GenSum (Rep a)) => NSum (GSum (Rep a)) -> a
 specSum = to . specSum'

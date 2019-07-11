@@ -1,18 +1,36 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DataKinds            #-}
+{-# LANGUAGE GADTs                #-}
+{-# LANGUAGE PolyKinds            #-}
+{-# LANGUAGE QuasiQuotes          #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE TypeInType           #-}
+{-# LANGUAGE TypeOperators        #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE DataKinds     #-}
-{-# LANGUAGE GADTs         #-}
-{-# LANGUAGE PolyKinds     #-}
-{-# LANGUAGE TypeFamilies  #-}
-{-# LANGUAGE TypeInType    #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE QuasiQuotes   #-}
-{-# LANGUAGE TemplateHaskell   #-}
 
+{-|
+module      : Data.NamedSOP.Type
+description : Symbol-type mappings, convenience re-exports
+
+End users should not have to manually import this module, since it is
+re-exported by "Data.NamedSOP.Map" and "Data.NamedSOP.Sum".
+
+In addition to 'Mapping' and its related singletons, various type
+families related to lists are redefined here, since the ones in
+"Data.Singletons.Prelude.List" use local definitions.  [As of
+2019-07](https://github.com/goldfirere/singletons/issues/339), it is
+not possible to prove around local definitions that are promoted with
+'singletons', so we are stuck redefining them.
+-}
 module Data.NamedSOP.Type
-  ( Mapping(..)
+  ( -- * Symbol-value mappings
+    Mapping(..)
   , SMapping
-  , SingI
+    -- * List operation singletons
+    -- | Unlike the usual definition, this 'union' does /not/ remove
+    -- duplicates, since that would make it impossible to define a
+    -- union operation for sums.
   , Union
   , sUnion
   , union
@@ -24,13 +42,15 @@ module Data.NamedSOP.Type
   , Sort
   , sSort
   , sort
-  , Sing(..)
+    -- * Convenience re-exports
+  , SingI
+  , Sing(SNil, SCons, SMapping)
   ) where
 
 import           Data.Kind
 import           Data.Singletons
+import           Data.Singletons.Prelude.List (Sing (SCons, SNil))
 import           Data.Singletons.TH
-import           Data.Singletons.Prelude.List (Sing(SCons, SNil))
 
 singletons [d|
    (++) :: [a] -> [a] -> [a]
@@ -45,13 +65,16 @@ singletons [d|
      GT -> y : insert x ys
 
    sort :: Ord a => [a] -> [a]
-   sort [] = []
+   sort []     = []
    sort (x:xs) = insert x (sort xs)
 
    union :: Ord a => [a] -> [a] -> [a]
    union xs ys = sort (xs ++ ys)
  |]
 
+-- | A type @v@ with an associated tag @k@.  Importantly, its
+-- singleton data instance only takes a singleton for the tag @k@ as
+-- its argmuent, and not one for the value @v@.
 infixr 4 :->
 
 data Mapping k v =
@@ -72,6 +95,7 @@ data instance  Sing (a :: Mapping k v) where
 instance SingI k => SingI (k ':-> v) where
   sing = SMapping sing
 
+-- | Equality and ordering on mappings uses only the key.
 instance PEq (Mapping k v) where
   type (k1 ':-> _) == (k2 ':-> _) = k1 == k2
 

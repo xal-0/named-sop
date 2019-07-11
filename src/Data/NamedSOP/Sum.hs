@@ -9,6 +9,10 @@
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeOperators       #-}
 
+{-|
+module      : Data.NamedSOP.Sum
+description : Dependently-typed sums
+-}
 module Data.NamedSOP.Sum
   ( NSum(..)
   , unionSum
@@ -24,6 +28,10 @@ import           Data.Singletons.Prelude.Ord
 
 import           Data.NamedSOP.Type
 
+-- | A dependently-typed sum.  The following are roughly equilvalent:
+--
+-- > type A = NSum '[ "B" ':-> Int, "C" ':-> Bool ]
+-- > data A = B Int | C Bool
 data NSum :: [Mapping Symbol Type] -> Type where
   NSumThis :: v -> NSum ((k ':-> v) ': xs)
   NSumThat :: forall x xs. NSum xs -> NSum (x ': xs)
@@ -63,6 +71,18 @@ sortSum (SCons sx sxs) (NSumThis v) = insertSum sx (sSort sxs) (Left v)
 sortSum (SCons sx@(SMapping _) sxs) (NSumThat vs) =
   insertSum sx (sSort sxs) (Right (sortSum sxs vs))
 
+-- | Combine two 'NSum's.  This is dual to
+-- 'Data.NamedSOP.Map.unionMap', which accepts a product of products
+-- and returns a product; 'unionSum' accepts a sum of sums and returns
+-- a sum.  The order of fields does not matter, because they will be
+-- sorted.
+--
+-- 'NSum's form a commutative monoid under 'unionSum', with @NSum '[]@
+-- as the identity.
+--
+-- Together with 'Data.NamedSOP.Map.NMap',
+-- 'Data.NamedSOP.Map.NMapEmpty', and 'Data.NamedSOP.Map.unionMap', it
+-- is a semiring.
 unionSum ::
      forall xs ys. (SingI xs, SingI ys)
   => Either (NSum xs) (NSum ys)
@@ -101,6 +121,13 @@ unsortSum (SCons sx@(SMapping _) sxs) v =
     Left x  -> NSumThis x
     Right x -> NSumThat (unsortSum sxs x)
 
+-- | Split a sorted 'NSum' into either of two (potentially unsorted)
+-- subsums.  Select the subsums with @-XTypeApplications@.
+--
+-- >>> s :: NSum '[ "A" ':-> Int, "B" ':-> Bool, "C" ':-> String ]
+-- >>> s = NSumThat (NSumThis True) -- Select the "B" field.
+-- >>> ununionSum @'[ "B" ':-> Bool, "A" ':-> Int ] @'[ "C" ':-> String ] s
+-- Left (B :-> True)
 ununionSum :: forall xs ys. (SingI xs, SingI ys) =>
   NSum (Union xs ys) -> Either (NSum xs) (NSum ys)
 ununionSum vs = splitSum sxs sys (unsortSum (sxs %++ sys) vs)
