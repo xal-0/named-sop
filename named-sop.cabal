@@ -14,11 +14,12 @@ description:
   converting between types with a Generic instance and named sums of
   products:
   .
-  >>> data A = C { a :: Int, b :: Bool } | D Int Bool deriving (Generic)
-  >>> :t genSum (C 3 True)
-  NSum
-   '[ "_C" ':-> NMap '[ "a" ':-> Int, "b" ':-> Bool],
-      "_D" ':-> NMap '[ "_1" ':-> Int, "_2" ':-> Bool]]
+  > >>> data A = C { a :: Int, b :: Bool } 
+  > >>>          | D Int Bool deriving (Generic)
+  > >>> :t genSum (C 3 True)
+  > NSum
+  >  '[ "_C" ':-> NMap '[ "a" ':-> Int, "b" ':-> Bool],
+  >     "_D" ':-> NMap '[ "_1" ':-> Int, "_2" ':-> Bool]]
 
 license:             MIT
 license-file:        LICENSE
