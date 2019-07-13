@@ -106,7 +106,7 @@ uninsertSum _ SNil (NSumThat v) = Right v
 uninsertSum sxk (SCons syk _) (NSumThis v) = case sCompare sxk syk of
   SLT -> Left v
   SEQ -> Left v
-  SGT -> error "unsorted list"
+  SGT -> Right (NSumThis v)
 uninsertSum sxk (SCons syk sys) (NSumThat vs) = case sCompare sxk syk of
   SLT -> Right vs
   SEQ -> Right vs
