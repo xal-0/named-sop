@@ -44,6 +44,23 @@ instance {-# OVERLAPS #-} (KnownSymbol k, Show v, Show (NSum xs)) =>
   show (NSumThis v)  = symbolVal (Proxy :: Proxy k) ++ " :-> " ++ show v
   show (NSumThat vs) = show vs
 
+instance Eq (NSum '[]) where
+  _ == _ = True
+
+instance (Eq v, Eq (NSum xs)) => Eq (NSum ((k ':-> v) ': xs)) where
+  (NSumThis x ) == (NSumThis y ) = x == y
+  (NSumThat xs) == (NSumThat ys) = xs == ys
+  _             == _             = False
+
+instance Ord (NSum '[]) where
+  compare _ _ = EQ
+
+instance (Ord v, Ord (NSum xs)) => Ord (NSum ((k ':-> v) ': xs)) where
+  compare (NSumThis x ) (NSumThis y ) = compare x y
+  compare (NSumThat xs) (NSumThat ys) = compare xs ys
+  compare (NSumThis _ ) (NSumThat _ ) = GT
+  compare (NSumThat _ ) (NSumThis _ ) = LT
+
 appendSum :: Sing xs -> Sing ys -> Either (NSum xs) (NSum ys) -> NSum (xs ++ ys)
 appendSum _ _ (Left (NSumThis x)) = NSumThis x
 appendSum (SCons _ sxs) sys (Left (NSumThat xs)) = NSumThat (appendSum sxs sys (Left xs))

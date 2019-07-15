@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE PolyKinds           #-}
@@ -55,6 +56,20 @@ instance {-# OVERLAPS #-} (KnownSymbol k, Show v, ShowMap xs) =>
 
 instance ShowMap xs => Show (NMap xs) where
   show xs = "{ " ++ showMap xs ++ " }"
+
+instance Eq (NMap '[]) where
+  NMapEmpty == NMapEmpty = True
+
+instance (Eq v, Eq (NMap xs)) => Eq (NMap ((k ':-> v) ': xs)) where
+  (NMapExt x xs) == (NMapExt y ys) = x == y && xs == ys
+
+instance Ord (NMap '[]) where
+  compare NMapEmpty NMapEmpty = EQ
+
+instance (Ord v, Ord (NMap xs)) => Ord (NMap ((k ':-> v) ': xs)) where
+  compare (NMapExt x xs) (NMapExt y ys) = case compare x y of
+    EQ -> compare xs ys
+    o  -> o
 
 appendMap :: NMap xs -> NMap ys -> NMap (xs ++ ys)
 appendMap NMapEmpty ys      = ys
