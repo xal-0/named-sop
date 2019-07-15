@@ -110,7 +110,7 @@ instance (GenProductN f, GenProductN g) => GenProductN (f :*: g) where
         (x, y) =
             withSingI sm1
               $ withSingI sm2
-              $ ununionMap @(GProductN n f) @(GProductN (n + GProductS f) g) m
+              $ ununionMap @_ @(GProductN n f) @(GProductN (n + GProductS f) g) m
     in  specProductN' sn x :*: specProductN' (sn %+ sGProductS @f) y
 
 class GenSum (f :: * -> *) where
@@ -143,9 +143,9 @@ instance GenProductN f => GenSum (C1 ('MetaCons n _a 'False) f) where
 instance ( SingI (GSum f), SingI (GSum g)
          , GenSum f, GenSum g) => GenSum (f :+: g) where
   type GSum (f :+: g) = Union (GSum f) (GSum g)
-  genSum' (L1 x) = unionSum @(GSum f) @(GSum g) (Left (genSum' x))
-  genSum' (R1 x) = unionSum @(GSum f) @(GSum g) (Right (genSum' x))
-  specSum' m = case ununionSum @(GSum f) @(GSum g) m of
+  genSum' (L1 x) = unionSum @_ @(GSum f) @(GSum g) (Left (genSum' x))
+  genSum' (R1 x) = unionSum @_ @(GSum f) @(GSum g) (Right (genSum' x))
+  specSum' m = case ununionSum @_ @(GSum f) @(GSum g) m of
     Left  x -> L1 (specSum' x)
     Right y -> R1 (specSum' y)
 
@@ -172,11 +172,13 @@ specProduct = to . specProduct'
 -- constructors into an 'NSum' of 'NMap's.  All constructor names will
 -- be prefixed with @_@ to allow for the use of @-XOverloadedLabels@.
 --
--- >>> data A = C { a :: Int, b :: Bool } | D Int Bool deriving (Generic)
+-- >>> data A = C { a :: Int, b :: Bool } | D Int Bool | E String
+-- >>>   deriving (Generic)
 -- >>> :t genSum (C 3 True)
 -- NSum
 --  '[ "_C" ':-> NMap '[ "a" ':-> Int, "b" ':-> Bool],
---     "_D" ':-> NMap '[ "_1" ':-> Int, "_2" ':-> Bool]]
+--     "_D" ':-> NMap '[ "_1" ':-> Int, "_2" ':-> Bool],
+--     "_E" ':-> NMap '[ "_1" ':-> String ]]
 genSum :: (Generic a, GenSum (Rep a)) => a -> NSum (GSum (Rep a))
 genSum = genSum' . from
 

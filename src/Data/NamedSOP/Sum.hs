@@ -2,8 +2,8 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE GADTs               #-}
-{-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE PolyKinds           #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
@@ -32,7 +32,7 @@ import           Data.NamedSOP.Type
 --
 -- > type A = NSum '[ "B" ':-> Int, "C" ':-> Bool ]
 -- > data A = B Int | C Bool
-data NSum :: [Mapping Symbol Type] -> Type where
+data NSum :: [Mapping s Type] -> Type where
   NSumThis :: v -> NSum ((k ':-> v) ': xs)
   NSumThat :: forall x xs. NSum xs -> NSum (x ': xs)
 
@@ -50,7 +50,8 @@ appendSum (SCons _ sxs) sys (Left (NSumThat xs)) = NSumThat (appendSum sxs sys (
 appendSum SNil _ (Right ys) = ys
 appendSum (SCons (_ :: Sing x) sxs) sys (Right ys) = NSumThat @x (appendSum sxs sys (Right ys))
 
-insertSum :: Sing (k ':-> v) -> Sing xs -> Either v (NSum xs) -> NSum (Insert (k ':-> v) xs)
+insertSum :: forall s k v (xs :: [Mapping s *]). SOrd s =>
+  Sing (k ':-> v) -> Sing xs -> Either v (NSum xs) -> NSum (Insert (k ':-> v) xs)
 insertSum _ SNil (Left v) = NSumThis v
 insertSum sxk (SCons syk sys) (Left v) =
   case sCompare sxk syk of
@@ -65,7 +66,7 @@ insertSum sxk (SCons syk sys) (Right v) = case sCompare sxk syk of
     NSumThat v' -> NSumThat (insertSum sxk sys (Right v'))
 insertSum _ SNil (Right _) = error "unreachable"
 
-sortSum :: Sing xs -> NSum xs -> NSum (Sort xs)
+sortSum :: forall s (xs :: [Mapping s *]). SOrd s => Sing xs -> NSum xs -> NSum (Sort xs)
 sortSum SNil _                      = error "unreachable"
 sortSum (SCons sx sxs) (NSumThis v) = insertSum sx (sSort sxs) (Left v)
 sortSum (SCons sx@(SMapping _) sxs) (NSumThat vs) =
@@ -84,7 +85,7 @@ sortSum (SCons sx@(SMapping _) sxs) (NSumThat vs) =
 -- 'Data.NamedSOP.Map.NMapEmpty', and 'Data.NamedSOP.Map.unionMap', it
 -- is a semiring.
 unionSum ::
-     forall xs ys. (SingI xs, SingI ys)
+     forall s (xs :: [Mapping s *]) (ys :: [Mapping s *]). (SingI xs, SingI ys, SOrd s)
   => Either (NSum xs) (NSum ys)
   -> NSum (Union xs ys)
 unionSum xs = sortSum (sing @xs %++ sing @ys) (appendSum (sing @xs) (sing @ys) xs)
@@ -99,7 +100,8 @@ splitSum (SCons _ sxs) sys (NSumThat v) =
     Left x  -> Left (NSumThat x)
     Right x -> Right x
 
-uninsertSum :: forall k v xs. Sing (k ':-> v) -> Sing xs
+uninsertSum :: forall s k v (xs :: [Mapping s *]). SOrd s
+  => Sing (k ':-> v) -> Sing xs
   -> NSum (Insert (k ':-> v) xs) -> Either v (NSum xs)
 uninsertSum _ SNil (NSumThis v) = Left v
 uninsertSum _ SNil (NSumThat v) = Right v
@@ -114,7 +116,8 @@ uninsertSum sxk (SCons syk sys) (NSumThat vs) = case sCompare sxk syk of
           Left x  -> Left x
           Right x -> Right (NSumThat x)
 
-unsortSum :: forall xs. Sing xs -> NSum (Sort xs) -> NSum xs
+unsortSum :: forall s (xs :: [Mapping s *]). SOrd s
+  => Sing xs -> NSum (Sort xs) -> NSum xs
 unsortSum SNil _ = error "unreachable"
 unsortSum (SCons sx@(SMapping _) sxs) v =
   case uninsertSum sx (sSort sxs) v of
@@ -126,10 +129,10 @@ unsortSum (SCons sx@(SMapping _) sxs) v =
 --
 -- >>> s :: NSum '[ "A" ':-> Int, "B" ':-> Bool, "C" ':-> String ]
 -- >>> s = NSumThat (NSumThis True) -- Select the "B" field.
--- >>> ununionSum @'[ "B" ':-> Bool, "A" ':-> Int ] @'[ "C" ':-> String ] s
+-- >>> ununionSum @_ @'[ "B" ':-> Bool, "A" ':-> Int ] @'[ "C" ':-> String ] s
 -- Left (B :-> True)
-ununionSum :: forall xs ys. (SingI xs, SingI ys) =>
-  NSum (Union xs ys) -> Either (NSum xs) (NSum ys)
+ununionSum :: forall s (xs :: [Mapping s *]) (ys :: [Mapping s *]). (SingI xs, SingI ys, SOrd s)
+  => NSum (Union xs ys) -> Either (NSum xs) (NSum ys)
 ununionSum vs = splitSum sxs sys (unsortSum (sxs %++ sys) vs)
   where
     sxs = sing @xs

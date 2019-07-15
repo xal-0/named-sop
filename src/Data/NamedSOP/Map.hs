@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE GADTs               #-}
-{-# LANGUAGE KindSignatures      #-}
+{-# LANGUAGE PolyKinds           #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
@@ -31,7 +31,7 @@ import           Data.NamedSOP.Type
 --
 -- > type A = NMap '[ "a" ':-> Int, "b" ':-> Bool ]
 -- > data A = A { a :: Int, b :: Bool }
-data NMap :: [Mapping Symbol Type] -> Type where
+data NMap :: [Mapping s Type] -> Type where
   NMapEmpty :: NMap '[]
   NMapExt :: forall k v xs. v -> NMap xs -> NMap ((k ':-> v) : xs)
 
@@ -60,8 +60,8 @@ appendMap :: NMap xs -> NMap ys -> NMap (xs ++ ys)
 appendMap NMapEmpty ys      = ys
 appendMap (NMapExt x xs) ys = NMapExt x (appendMap xs ys)
 
-insertMap ::
-     Sing (k ':-> v) -> Sing xs -> v -> NMap xs -> NMap (Insert (k ':-> v) xs)
+insertMap :: forall s k v (xs :: [Mapping s *]). SOrd s
+  => Sing (k ':-> v) -> Sing xs -> v -> NMap xs -> NMap (Insert (k ':-> v) xs)
 insertMap _ _ x NMapEmpty = NMapExt x NMapEmpty
 insertMap sxk (SCons syk sys) x ys@(NMapExt y ys') =
   case sCompare sxk syk of
@@ -69,7 +69,8 @@ insertMap sxk (SCons syk sys) x ys@(NMapExt y ys') =
     SEQ -> NMapExt x ys
     SGT -> NMapExt y (insertMap sxk sys x ys')
 
-sortMap :: Sing xs -> NMap xs -> NMap (Sort xs)
+sortMap :: forall s (xs :: [Mapping s *]). SOrd s
+  => Sing xs -> NMap xs -> NMap (Sort xs)
 sortMap _ NMapEmpty = NMapEmpty
 sortMap (SCons sx sxs) (NMapExt x xs) =
   insertMap sx (sSort sxs) x (sortMap sxs xs)
@@ -85,7 +86,7 @@ sortMap (SCons sx sxs) (NMapExt x xs) =
 -- This function takes a tuple as an argument so that it is symmetric
 -- with `ununionMap`.
 unionMap ::
-     forall xs ys. (SingI xs, SingI ys)
+     forall s (xs :: [Mapping s *]) (ys :: [Mapping s *]). (SingI xs, SingI ys, SOrd s)
   => (NMap xs, NMap ys)
   -> NMap (Union xs ys)
 unionMap (xs, ys) = sortMap (sing @xs %++ sing @ys) (appendMap xs ys)
@@ -97,7 +98,8 @@ splitMap (SCons _ sxs) sys (NMapExt x xs) =
   let (a, b) = splitMap sxs sys xs
   in (NMapExt x a, b)
 
-uninsertMap :: forall k v xs. Sing (k ':-> v) -> Sing xs -> NMap (Insert (k ':-> v) xs) -> (v, NMap xs)
+uninsertMap :: forall s k v (xs :: [Mapping s *]). SOrd s
+  => Sing (k ':-> v) -> Sing xs -> NMap (Insert (k ':-> v) xs) -> (v, NMap xs)
 uninsertMap _ SNil (NMapExt v NMapEmpty) = (v, NMapEmpty)
 uninsertMap sx@(SMapping sk) (SCons (SMapping sk') sxs) (NMapExt v vs) = case sCompare sk sk' of
   SLT -> (v, vs)
@@ -106,7 +108,8 @@ uninsertMap sx@(SMapping sk) (SCons (SMapping sk') sxs) (NMapExt v vs) = case sC
         in (v', NMapExt v vs')
 uninsertMap _ (SCons _ _) NMapEmpty = error "unreachable"
 
-unsortMap :: forall xs. Sing xs -> NMap (Sort xs) -> NMap xs
+unsortMap :: forall s (xs :: [Mapping s *]). SOrd s
+  => Sing xs -> NMap (Sort xs) -> NMap xs
 unsortMap SNil NMapEmpty = NMapEmpty
 unsortMap (SCons sx@(SMapping _) sxs) vs =
   let (v', vs') = uninsertMap sx (sSort sxs) vs
@@ -114,14 +117,15 @@ unsortMap (SCons sx@(SMapping _) sxs) vs =
 
 -- | Split a sorted 'NMap' into two arbitrary (and potentially
 -- unsorted) submaps.  Conveniently select the submaps to split into
--- using @-XTypeApplications@.
+-- using @-XTypeApplications@.  (Note the empty type argument for the
+-- key kind).
 --
 -- >>> m :: NMap '[ "a" ':-> Int, "b" ':-> Bool, "c" ':-> String ]
 -- >>> m = NMapExt 1 (NMapExt True (NMapExt "hello" NMapEmpty))
--- >>> ununionMap @'[ "b" ':-> Bool, "a" ':-> Int ] @'[ "c" ':-> String ] m
+-- >>> ununionMap @_ @'[ "b" ':-> Bool, "a" ':-> Int ] @'[ "c" ':-> String ] m
 -- ({ b :-> True, a :-> 1 },{ c :-> "hello" })
-ununionMap :: forall xs ys. (SingI xs, SingI ys) =>
-  NMap (Union xs ys) -> (NMap xs, NMap ys)
+ununionMap :: forall s (xs :: [Mapping s *]) (ys :: [Mapping s *]). (SingI xs, SingI ys, SOrd s)
+  => NMap (Union xs ys) -> (NMap xs, NMap ys)
 ununionMap vs = splitMap sxs sys (unsortMap (sxs %++ sys) vs)
   where
     sxs = sing @xs
