@@ -33,7 +33,7 @@ import           Data.NamedSOP.Type
 -- > type A = NSum '[ "B" ':-> Int, "C" ':-> Bool ]
 -- > data A = B Int | C Bool
 data NSum :: [Mapping s Type] -> Type where
-  NSumThis :: v -> NSum ((k ':-> v) ': xs)
+  NSumThis :: forall k v xs. v -> NSum ((k ':-> v) ': xs)
   NSumThat :: forall x xs. NSum xs -> NSum (x ': xs)
 
 instance {-# OVERLAPPABLE #-} Show (NSum '[]) where
