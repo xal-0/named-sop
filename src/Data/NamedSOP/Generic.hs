@@ -48,6 +48,11 @@ instance GenProduct f => GenProduct (C1 ('MetaCons _a _b 'True) f) where
   genProduct'  = genProduct' . unM1
   specProduct' = M1 . specProduct'
 
+instance GenProduct U1 where
+  type GProduct U1 = '[]
+  genProduct' U1 = NMapEmpty
+  specProduct' NMapEmpty = U1
+
 instance GenProduct (S1 ('MetaSel ('Just n) _a _b _c) (Rec0 t)) where
   type GProduct (S1 ( 'MetaSel ( 'Just n) _a _b _c) (Rec0 t)) = '[n ':-> t]
   genProduct' (M1 (K1 c)) = NMapExt c NMapEmpty
@@ -72,6 +77,14 @@ class GenProductN (f :: * -> *) where
   sGProductN :: Sing n -> Sing (GProductN n f)
   genProductN' :: Sing n -> f a -> NMap (GProductN n f)
   specProductN' :: Sing n -> NMap (GProductN n f) -> f a
+
+instance GenProductN U1 where
+  type GProductN n U1 = '[]
+  type GProductS U1 = 0
+  sGProductS = SNat
+  sGProductN _ = SNil
+  genProductN' _ U1 = NMapEmpty
+  specProductN' _ NMapEmpty = U1
 
 instance GenProductN (S1 ('MetaSel 'Nothing _a _b _c) (Rec0 t)) where
   type GProductN n (S1 ( 'MetaSel 'Nothing _a _b _c) (Rec0 t)) = '[Mappend "_" (Show_ n) ':-> t]
@@ -109,6 +122,11 @@ instance GenSum f => GenSum (D1 _a f) where
   type GSum (D1 _a f) = GSum f
   genSum'  = genSum' . unM1
   specSum' = M1 . specSum'
+
+instance GenSum V1 where
+  type GSum V1 = '[]
+  genSum' _ = error "unreachable"
+  specSum' _ = error "unreachable"
 
 instance GenProduct f => GenSum (C1 ('MetaCons n _a 'True) f) where
   type GSum (C1 ( 'MetaCons n _a 'True) f) = '[Mappend "_" n ':-> NMap (GProduct f)]
