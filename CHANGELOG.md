@@ -5,7 +5,7 @@
   change, because the qualifier for the kind of the key must go before
   the qualifier for the typelevel lists, potentially breaking
   TypeApplication uses.
-- Add Eq and Ord instances ofr NMap and NSum
+- Add Eq and Ord instances for NMap and NSum
 - Add a testsuite
 
 # 0.1.0.1
