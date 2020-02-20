@@ -1,3 +1,6 @@
+# 0.3.0.0
+- Update to GHC 8.8.2 and singletons-2.6.
+
 # 0.2.0.0
 
 - Made NMap and NSum polymorphic over the kind of the key.  (Perhaps

@@ -1,5 +1,5 @@
 name:                named-sop
-version:             0.2.0.0
+version:             0.3.0.0
 category:            Data
 
 homepage:            https://github.com/sjsch/named-sop
@@ -28,7 +28,7 @@ maintainer:          Sam Schweigel <s.schweigel@gmail.com>
 
 build-type:          Simple
 cabal-version:       2.0
-tested-with:         GHC ==8.6.4
+tested-with:         GHC ==8.8.1
 
 extra-source-files:    CHANGELOG.md, README.md
 
