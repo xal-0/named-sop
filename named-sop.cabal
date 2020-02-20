@@ -41,8 +41,8 @@ library
                      , Data.NamedSOP.Map
                      , Data.NamedSOP.Sum
                      , Data.NamedSOP.Generic
-  build-depends:       base       ^>= 4.12.0.0
-                     , singletons ^>= 2.5.1
+  build-depends:       base       ^>= 4.13.0.0
+                     , singletons ^>= 2.6
                      , text       ^>= 1.2.3.1
   hs-source-dirs:      src
   default-language:    Haskell2010

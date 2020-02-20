@@ -4,6 +4,7 @@
 {-# LANGUAGE QuasiQuotes          #-}
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE TemplateHaskell      #-}
+{-# LANGUAGE TypeApplications     #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeInType           #-}
 {-# LANGUAGE TypeOperators        #-}
@@ -26,7 +27,7 @@ not possible to prove around local definitions that are promoted with
 module Data.NamedSOP.Type
   ( -- * Symbol-value mappings
     Mapping(..)
-  , SMapping
+  , SMapping(..)
     -- * List operation singletons
     -- | Unlike the usual definition, this 'union' does /not/ remove
     -- duplicates, since that would make it impossible to define a
@@ -44,12 +45,11 @@ module Data.NamedSOP.Type
   , sort
     -- * Convenience re-exports
   , SingI
-  , Sing(SNil, SCons, SMapping)
+  , Sing
+  , SList(..)
   ) where
 
-import           Data.Kind
-import           Data.Singletons
-import           Data.Singletons.Prelude.List (Sing (SCons, SNil))
+import           Data.Singletons.Prelude.List (SList (..))
 import           Data.Singletons.TH
 
 singletons [d|
@@ -87,10 +87,10 @@ instance Eq a => Eq (Mapping a b) where
 instance Ord a => Ord (Mapping a b) where
   compare (x :-> _) (y :-> _) = compare x y
 
-type SMapping = (Sing :: Mapping k v -> Type)
+data SMapping (a :: Mapping k v) where
+  SMapping :: Sing k -> SMapping (k ':-> v)
 
-data instance  Sing (a :: Mapping k v) where
-        SMapping :: Sing k -> Sing (k ':-> v)
+type instance Sing = SMapping
 
 instance SingI k => SingI (k ':-> v) where
   sing = SMapping sing
